@@ -188,3 +188,18 @@ export async function updateCustomer(
 
   return res.json();
 }
+
+export const deleteQuote = async (quoteId: string) => {
+  const response = await fetch(`${API_BASE}/quote/${quoteId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to delete" }));
+    throw new Error(error.detail || "Failed to delete quote");
+  }
+
+  return await response.json();
+};

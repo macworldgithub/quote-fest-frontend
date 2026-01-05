@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { listQuotes, getPDF } from "@/lib/api";
+import { listQuotes, getPDF, deleteQuote } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface QuoteDashboardProps {
@@ -240,6 +240,26 @@ export default function QuoteDashboard({
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
+                          {/* <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() => onViewQuote?.(quote.id)}
+                            >
+                              <Eye className="w-4 h-4" />
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="gap-2">
+                              <Edit2 className="w-4 h-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() => handleDownloadPDF(quote.id)}
+                            >
+                              <Download className="w-4 h-4" />
+                              Download PDF
+                            </DropdownMenuItem>
+                          </DropdownMenuContent> */}
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
                               className="gap-2"
@@ -248,16 +268,60 @@ export default function QuoteDashboard({
                               <Eye className="w-4 h-4" />
                               View
                             </DropdownMenuItem>
-                            {/* <DropdownMenuItem className="gap-2">
-                              <Edit2 className="w-4 h-4" />
-                              Edit
-                            </DropdownMenuItem> */}
                             <DropdownMenuItem
                               className="gap-2"
                               onClick={() => handleDownloadPDF(quote.id)}
                             >
                               <Download className="w-4 h-4" />
                               Download PDF
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              className="gap-2 text-destructive focus:text-destructive"
+                              onClick={async () => {
+                                if (
+                                  !confirm(
+                                    "Are you sure you want to delete this quote? This cannot be undone."
+                                  )
+                                ) {
+                                  return;
+                                }
+                                try {
+                                  await deleteQuote(quote.id);
+                                  toast({
+                                    title: "Quote deleted",
+                                    description:
+                                      "The quote has been permanently removed.",
+                                  });
+                                  // Refresh the list
+                                  const data = await listQuotes();
+                                  setQuotes(data);
+                                } catch (error) {
+                                  toast({
+                                    title: "Failed to delete",
+                                    description:
+                                      error instanceof Error
+                                        ? error.message
+                                        : "Could not delete quote",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                              Delete Quote
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
