@@ -148,7 +148,7 @@ export default function QuoteStart({
         </div>
 
         <div className="space-y-3">
-          <Button
+          {/* <Button
             onClick={handleTakePhoto}
             disabled={isProcessing}
             size="lg"
@@ -165,7 +165,7 @@ export default function QuoteStart({
                 Take Photo
               </>
             )}
-          </Button>
+          </Button> */}
 
           <Button
             onClick={handleUploadFile}
