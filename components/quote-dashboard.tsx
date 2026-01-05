@@ -1,91 +1,121 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Filter, Eye, Edit2, Download, MoreVertical, Loader2 } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { listQuotes, getPDF } from "@/lib/api"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search,
+  Plus,
+  Filter,
+  Eye,
+  Edit2,
+  Download,
+  MoreVertical,
+  Loader2,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { listQuotes, getPDF } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface QuoteDashboardProps {
-  onNewQuote: () => void
-  onViewQuote?: (quoteId: string) => void
+  onNewQuote: () => void;
+  onViewQuote?: (quoteId: string) => void;
 }
 
-export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboardProps) {
-  const [quotes, setQuotes] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const { toast } = useToast()
+export default function QuoteDashboard({
+  onNewQuote,
+  onViewQuote,
+}: QuoteDashboardProps) {
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadQuotes = async () => {
       try {
-        const data = await listQuotes()
-        setQuotes(data)
+        const data = await listQuotes();
+        setQuotes(data);
       } catch (error) {
-        console.error("[v0] Failed to load quotes:", error)
+        console.error("[v0] Failed to load quotes:", error);
         toast({
           title: "Error loading quotes",
-          description: error instanceof Error ? error.message : "Failed to load quotes",
+          description:
+            error instanceof Error ? error.message : "Failed to load quotes",
           variant: "destructive",
-        })
+        });
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    loadQuotes()
-  }, [toast])
+    loadQuotes();
+  }, [toast]);
 
   const handleDownloadPDF = async (quoteId: string) => {
     try {
-      const blob = await getPDF(quoteId)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `Quote_${quoteId.slice(0, 8)}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      const blob = await getPDF(quoteId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Quote_${quoteId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       toast({
         title: "Error downloading PDF",
-        description: error instanceof Error ? error.message : "Failed to download PDF",
+        description:
+          error instanceof Error ? error.message : "Failed to download PDF",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const statusColors: Record<string, string> = {
     Draft: "bg-muted text-muted-foreground",
     Sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100",
-    Viewed: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100",
+    Viewed:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100",
     Accepted: "bg-accent text-accent-foreground",
     Lost: "bg-destructive/10 text-destructive",
-  }
+  };
 
   const filteredQuotes = quotes.filter((quote) => {
-    const company = quote.customer?.company || quote.customer?.company_name || ""
-    const matchesSearch = company.toLowerCase().includes(searchTerm.toLowerCase()) || quote.id.includes(searchTerm)
-    const matchesStatus = !statusFilter || quote.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+    const company =
+      quote.customer?.company || quote.customer?.company_name || "";
+    const matchesSearch =
+      company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quote.id.includes(searchTerm);
+    const matchesStatus = !statusFilter || quote.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-  const totalSavings = filteredQuotes.reduce((sum, q) => sum + (q.monthly_saving_ex || 0), 0)
-  const averageSaving = filteredQuotes.length > 0 ? totalSavings / filteredQuotes.length : 0
+  const totalSavings = filteredQuotes.reduce(
+    (sum, q) => sum + (q.monthly_saving_ex || 0),
+    0
+  );
+  const averageSaving =
+    filteredQuotes.length > 0 ? totalSavings / filteredQuotes.length : 0;
 
   const stats = [
     { label: "Total Quotes", value: quotes.length.toString() },
-    { label: "This Month", value: quotes.filter((q) => q.status !== "Draft").length.toString() },
+    {
+      label: "This Month",
+      value: quotes.filter((q) => q.status !== "Draft").length.toString(),
+    },
     { label: "Total Savings", value: `$${totalSavings.toFixed(0)}/mo` },
     { label: "Avg Saving", value: `$${averageSaving.toFixed(0)}/mo` },
-  ]
+  ];
 
   if (isLoading) {
     return (
@@ -95,7 +125,7 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
           <p className="text-muted-foreground">Loading quotes...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -115,7 +145,9 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
           {stats.map((stat, idx) => (
             <Card key={idx} className="p-4">
               <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className="text-2xl font-bold text-foreground mt-1">{stat.value}</p>
+              <p className="text-2xl font-bold text-foreground mt-1">
+                {stat.value}
+              </p>
             </Card>
           ))}
         </div>
@@ -131,7 +163,7 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
                 className="pl-10"
               />
             </div>
-            <DropdownMenu>
+            {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2 bg-transparent">
                   <Filter className="w-4 h-4" />
@@ -146,12 +178,14 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
           </div>
 
           {filteredQuotes.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">No quotes found. Create your first quote to get started!</p>
+              <p className="text-muted-foreground">
+                No quotes found. Create your first quote to get started!
+              </p>
               <Button onClick={onNewQuote} className="mt-4 gap-2">
                 <Plus className="w-4 h-4" />
                 New Quote
@@ -164,7 +198,7 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
                   <tr className="text-muted-foreground text-xs font-semibold">
                     <th className="text-left py-3 px-4">Quote ID</th>
                     <th className="text-left py-3 px-4">Customer</th>
-                    <th className="text-left py-3 px-4">Status</th>
+                    {/* <th className="text-left py-3 px-4">Status</th> */}
                     <th className="text-left py-3 px-4">Created</th>
                     <th className="text-right py-3 px-4">Monthly Saving</th>
                     <th className="text-right py-3 px-4" />
@@ -172,14 +206,27 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredQuotes.map((quote) => (
-                    <tr key={quote.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3 px-4 font-medium text-foreground">#{quote.id.slice(0, 8).toUpperCase()}</td>
-                      <td className="py-3 px-4">{quote.customer?.company || quote.customer?.company_name || "N/A"}</td>
+                    <tr
+                      key={quote.id}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="py-3 px-4 font-medium text-foreground">
+                        #{quote.id.slice(0, 8).toUpperCase()}
+                      </td>
                       <td className="py-3 px-4">
-                        <Badge className={statusColors[quote.status] || statusColors.Draft}>
+                        {quote.customer?.company ||
+                          quote.customer?.company_name ||
+                          "N/A"}
+                      </td>
+                      {/* <td className="py-3 px-4">
+                        <Badge
+                          className={
+                            statusColors[quote.status] || statusColors.Draft
+                          }
+                        >
                           {quote.status || "Draft"}
                         </Badge>
-                      </td>
+                      </td> */}
                       <td className="py-3 px-4 text-muted-foreground">
                         {new Date(quote.created).toLocaleDateString()}
                       </td>
@@ -194,15 +241,21 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2" onClick={() => onViewQuote?.(quote.id)}>
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() => onViewQuote?.(quote.id)}
+                            >
                               <Eye className="w-4 h-4" />
                               View
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
+                            {/* <DropdownMenuItem className="gap-2">
                               <Edit2 className="w-4 h-4" />
                               Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2" onClick={() => handleDownloadPDF(quote.id)}>
+                            </DropdownMenuItem> */}
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() => handleDownloadPDF(quote.id)}
+                            >
                               <Download className="w-4 h-4" />
                               Download PDF
                             </DropdownMenuItem>
@@ -218,5 +271,5 @@ export default function QuoteDashboard({ onNewQuote, onViewQuote }: QuoteDashboa
         </div>
       </div>
     </div>
-  )
+  );
 }

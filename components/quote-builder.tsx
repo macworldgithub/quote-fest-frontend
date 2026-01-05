@@ -482,17 +482,25 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
+  // Add line modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newLine, setNewLine] = useState({
+    desc: "",
+    qty: 1,
+    unit_ex: 0.0,
+    cadence: "monthly" as "monthly" | "once-off",
+  });
+
+  // Editing state for lines: track which line is being edited and its local data
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editedLines, setEditedLines] = useState<Record<number, any>>({});
+
   const toast = simpleToast;
 
   const raw = quote?.raw_grok_output;
-
-  // Current spend from bill
   const currentSpendEx = quote?.current_spend_ex || 0;
-
-  // Selected lines (either user-edited or default from first recommendation)
   const selectedLines = quote?.selected_lines || [];
 
-  // Calculate actual new monthly spend from selected lines
   const newMonthlyEx = selectedLines
     .filter((line: any) => line.cadence?.toLowerCase() === "monthly")
     .reduce(
@@ -500,14 +508,11 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
       0
     );
 
-  // Actual monthly saving based on selected lines
   const monthlySavingEx = currentSpendEx - newMonthlyEx;
 
-  // Current services extracted from bill
   const currentServices =
     raw?.current_spend?.breakdown?.map((b: any) => b.service) || [];
 
-  // Customer data logic
   const getCustomerData = () => {
     const saved = quote?.customer || {};
     const extracted = raw?.customer_info || {};
@@ -537,42 +542,6 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
     loadQuote();
   }, [quoteId]);
 
-  const handleUpdateLine = async (
-    index: number,
-    updates: Record<string, any>
-  ) => {
-    try {
-      const updated = await updateLineItem(quoteId, index, updates);
-      setQuote(updated);
-    } catch (error) {
-      toast({ title: "Error updating line", variant: "destructive" });
-    }
-  };
-
-  const handleRemoveLine = async (index: number) => {
-    try {
-      const updated = await removeLineItem(quoteId, index);
-      setQuote(updated);
-    } catch (error) {
-      toast({ title: "Error removing line", variant: "destructive" });
-    }
-  };
-
-  const handleAddLine = async () => {
-    try {
-      const updated = await addAdhocLineItem(
-        quoteId,
-        "New Service",
-        1,
-        0,
-        "monthly"
-      );
-      setQuote(updated);
-    } catch (error) {
-      toast({ title: "Error adding line", variant: "destructive" });
-    }
-  };
-
   const handleSendQuote = async () => {
     const customerData = getCustomerData();
     const email = customerData.main_contact_email || customerData.email;
@@ -587,7 +556,7 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
     setIsSending(true);
     try {
       await sendEmail(quoteId, email);
-      await updateQuoteStatus(quoteId, "Sent");
+      // await updateQuoteStatus(quoteId, "Sent");
       setQuote((prev: any) => ({ ...prev, status: "Sent" }));
       toast({ title: "Quote sent!", description: `Email sent to ${email}` });
     } catch (error) {
@@ -627,7 +596,62 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
 
   const handleCustomerSaved = () => {
     getQuote(quoteId).then(setQuote);
-    toast({ title: "Success", description: "Customer details saved!" });
+    // toast({ title: "Success", description: "Customer details saved!" });
+  };
+
+  // Start editing a line
+  const startEditing = (index: number) => {
+    setEditingIndex(index);
+    setEditedLines((prev) => ({
+      ...prev,
+      [index]: { ...selectedLines[index] },
+    }));
+  };
+
+  // Update local edited line
+  const updateEditedLine = (index: number, updates: Partial<any>) => {
+    setEditedLines((prev) => ({
+      ...prev,
+      [index]: { ...prev[index], ...updates },
+    }));
+  };
+
+  // Save edited line
+  const saveEditedLine = async (index: number) => {
+    const lineData = editedLines[index];
+    if (!lineData) return;
+
+    try {
+      const updatedQuote = await updateLineItem(quoteId, index, lineData);
+      setQuote(updatedQuote);
+      setEditingIndex(null);
+      setEditedLines((prev) => {
+        const { [index]: _, ...rest } = prev;
+        return rest;
+      });
+      toast({ title: "Line updated successfully" });
+    } catch (error) {
+      toast({ title: "Failed to update line", variant: "destructive" });
+    }
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingIndex(null);
+    setEditedLines({});
+  };
+
+  // Delete line with confirmation
+  const handleDeleteLine = async (index: number) => {
+    if (window.confirm("Are you sure you want to delete this line item?")) {
+      try {
+        const updatedQuote = await removeLineItem(quoteId, index);
+        setQuote(updatedQuote);
+        toast({ title: "Line removed" });
+      } catch (error) {
+        toast({ title: "Failed to remove line", variant: "destructive" });
+      }
+    }
   };
 
   if (isLoading)
@@ -737,71 +761,214 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleAddLine}
+                  onClick={() => setShowAddModal(true)}
                   className="gap-2"
                 >
                   <Plus className="w-4 h-4" /> Add Line
                 </Button>
               </div>
+
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {selectedLines.map((item: any, idx: number) => (
-                  <Card key={idx} className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          value={item.desc || ""}
-                          onChange={(e) =>
-                            handleUpdateLine(idx, { desc: e.target.value })
-                          }
-                          className="text-sm"
-                        />
-                        <div className="grid grid-cols-3 gap-2">
+                {selectedLines.map((item: any, idx: number) => {
+                  const isEditing = editingIndex === idx;
+                  const displayItem = isEditing
+                    ? editedLines[idx] || item
+                    : item;
+
+                  return (
+                    <Card key={idx} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-3">
                           <Input
-                            type="number"
-                            value={item.qty || 1}
+                            placeholder="Description"
+                            value={displayItem.desc || ""}
                             onChange={(e) =>
-                              handleUpdateLine(idx, {
-                                qty: Number(e.target.value) || 0,
-                              })
+                              updateEditedLine(idx, { desc: e.target.value })
                             }
+                            disabled={!isEditing}
                             className="text-sm"
                           />
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.unit_ex || 0}
-                            onChange={(e) =>
-                              handleUpdateLine(idx, {
-                                unit_ex: Number(e.target.value) || 0,
-                              })
-                            }
-                            className="text-sm"
-                          />
-                          <select
-                            value={item.cadence || "monthly"}
-                            onChange={(e) =>
-                              handleUpdateLine(idx, { cadence: e.target.value })
-                            }
-                            className="text-sm px-2 py-2 rounded border border-input bg-background"
+                          <div className="grid grid-cols-3 gap-2">
+                            <Input
+                              type="number"
+                              placeholder="Qty"
+                              value={displayItem.qty || 1}
+                              onChange={(e) =>
+                                updateEditedLine(idx, {
+                                  qty: Number(e.target.value) || 1,
+                                })
+                              }
+                              disabled={!isEditing}
+                              className="text-sm"
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Unit Price (ex GST)"
+                              value={displayItem.unit_ex || 0}
+                              onChange={(e) =>
+                                updateEditedLine(idx, {
+                                  unit_ex: Number(e.target.value) || 0,
+                                })
+                              }
+                              disabled={!isEditing}
+                              className="text-sm"
+                            />
+                            <select
+                              value={displayItem.cadence || "monthly"}
+                              onChange={(e) =>
+                                updateEditedLine(idx, {
+                                  cadence: e.target.value,
+                                })
+                              }
+                              disabled={!isEditing}
+                              className="text-sm px-3 py-2 rounded border border-input bg-background disabled:opacity-50"
+                            >
+                              <option value="monthly">Monthly</option>
+                              <option value="once-off">Once-off</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => saveEditedLine(idx)}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEditing}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditing(idx)}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteLine(idx)}
+                            className="text-destructive hover:bg-destructive/10"
                           >
-                            <option value="monthly">Monthly</option>
-                            <option value="once-off">Once-off</option>
-                          </select>
+                            <Minus className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveLine(idx)}
-                        className="text-destructive"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </div>
             </div>
+
+            {/* Add Line Modal */}
+            {showAddModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <Card className="w-full max-w-md p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Add New Line Item</h3>
+                  <Input
+                    placeholder="Description (required)"
+                    value={newLine.desc}
+                    onChange={(e) =>
+                      setNewLine({ ...newLine, desc: e.target.value })
+                    }
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      type="number"
+                      placeholder="Quantity"
+                      value={newLine.qty}
+                      onChange={(e) =>
+                        setNewLine({
+                          ...newLine,
+                          qty: Number(e.target.value) || 1,
+                        })
+                      }
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Unit Price (ex GST)"
+                      value={newLine.unit_ex}
+                      onChange={(e) =>
+                        setNewLine({
+                          ...newLine,
+                          unit_ex: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <select
+                    value={newLine.cadence}
+                    onChange={(e) =>
+                      setNewLine({
+                        ...newLine,
+                        cadence: e.target.value as "monthly" | "once-off",
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded border border-input bg-background"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="once-off">Once-off</option>
+                  </select>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAddModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        if (!newLine.desc.trim()) {
+                          toast({
+                            title: "Description required",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        try {
+                          const updatedQuote = await addAdhocLineItem(
+                            quoteId,
+                            newLine.desc,
+                            newLine.qty,
+                            newLine.unit_ex,
+                            newLine.cadence
+                          );
+                          setQuote(updatedQuote);
+                          setShowAddModal(false);
+                          setNewLine({
+                            desc: "",
+                            qty: 1,
+                            unit_ex: 0,
+                            cadence: "monthly",
+                          });
+                          toast({ title: "Line added successfully" });
+                        } catch (error) {
+                          toast({
+                            title: "Failed to add line",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      Add Line
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            )}
 
             <Card className="p-4 bg-accent/5 border-accent/20 space-y-2">
               <div className="flex justify-between text-sm">
@@ -817,25 +984,27 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold pt-2 border-t border-accent/20">
-                <span>Monthly saving:</span>
+                <span>
+                  Monthly {monthlySavingEx >= 0 ? "saving" : "extra cost"}:
+                </span>
                 <span
                   className={
-                    monthlySavingEx >= 0 ? "text-accent" : "text-destructive"
+                    monthlySavingEx >= 0 ? "text-green-600" : "text-red-600"
                   }
                 >
                   ${Math.abs(monthlySavingEx).toFixed(2)}
-                  {monthlySavingEx < 0 && " (extra cost)"}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold">
-                <span>24-month saving:</span>
+                <span>
+                  24-month {monthlySavingEx >= 0 ? "saving" : "extra cost"}:
+                </span>
                 <span
                   className={
-                    monthlySavingEx >= 0 ? "text-accent" : "text-destructive"
+                    monthlySavingEx >= 0 ? "text-green-600" : "text-red-600"
                   }
                 >
                   ${(Math.abs(monthlySavingEx) * 24).toFixed(2)}
-                  {monthlySavingEx < 0 && " (extra cost)"}
                 </span>
               </div>
             </Card>
