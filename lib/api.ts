@@ -175,3 +175,16 @@ export async function sendEmail(
 
   return res.json();
 }
+
+export async function updateCustomer(
+  quoteId: string,
+  customerData: Record<string, any>
+): Promise<AnalyzeBillResponse> {
+  const res = await fetchAPI(`${API_BASE}/update-customer/${quoteId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(customerData),
+  });
+
+  return res.json();
+}
