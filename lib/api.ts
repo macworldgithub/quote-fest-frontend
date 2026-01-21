@@ -204,7 +204,7 @@
 //   return await response.json();
 // };
 
-const API_BASE = "http://localhost:7002";
+const API_BASE = "https://quotefast.omnisuiteai.com";
 
 interface AnalyzeBillResponse {
   id: string;
