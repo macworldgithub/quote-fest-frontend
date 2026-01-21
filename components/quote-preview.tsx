@@ -12,10 +12,10 @@
 //   const newMrc = quote.new_monthly_ex || 0;
 //   const monthlySaving = quote.monthly_saving_ex || 0;
 
-//   /**
-//    * Safely get a displayable string from customer data
-//    * Handles strings, objects (especially addresses), numbers, null, etc.
-//    */
+//   const isSaving = monthlySaving > 0;
+//   const isLoss = monthlySaving < 0;
+//   const displaySaving = Math.abs(monthlySaving);
+
 //   const getCustomerValue = (keys: string[]): string => {
 //     for (const key of keys) {
 //       const rawVal = customer[key];
@@ -29,11 +29,8 @@
 //         continue;
 //       }
 
-//       // Handle structured address object
 //       if (typeof rawVal === "object" && rawVal !== null) {
-//         // Common patterns: { street, suburb, state, postcode } or { line1, city, state, zip }
 //         const parts: string[] = [];
-
 //         if (rawVal.street || rawVal.line1)
 //           parts.push(rawVal.street || rawVal.line1);
 //         if (rawVal.suburb || rawVal.city)
@@ -41,21 +38,15 @@
 //         if (rawVal.state) parts.push(rawVal.state);
 //         if (rawVal.postcode || rawVal.zip)
 //           parts.push(rawVal.postcode || rawVal.zip);
-
-//         if (parts.length > 0) {
-//           return parts.join(", ");
-//         }
-//         // Fallback: just stringify if it's some other object
+//         if (parts.length > 0) return parts.join(", ");
 //         return String(rawVal);
 //       }
 
-//       // Normal scalar value — convert to string and trim
 //       const strVal = String(rawVal).trim();
 //       if (strVal !== "" && strVal !== "null" && strVal !== "undefined") {
 //         return strVal;
 //       }
 //     }
-
 //     return "N/A";
 //   };
 
@@ -169,17 +160,35 @@
 //         </div>
 //         <Separator className="bg-accent/20" />
 //         <div className="flex justify-between items-center pt-1">
-//           <span className="text-foreground font-semibold">Monthly saving:</span>
-//           <span className="text-lg font-bold text-accent">
-//             ${monthlySaving.toFixed(2)}
+//           <span className="text-foreground font-semibold">
+//             Monthly {isLoss ? "extra cost" : "saving"}:
+//           </span>
+//           <span
+//             className={`text-lg font-bold ${
+//               isSaving
+//                 ? "text-green-600"
+//                 : isLoss
+//                 ? "text-red-600"
+//                 : "text-muted-foreground"
+//             }`}
+//           >
+//             ${displaySaving.toFixed(2)}
 //           </span>
 //         </div>
 //         <div className="flex justify-between items-center">
 //           <span className="text-foreground font-semibold">
-//             24-month saving:
+//             24-month {isLoss ? "extra cost" : "saving"}:
 //           </span>
-//           <span className="text-lg font-bold text-accent">
-//             ${(monthlySaving * 24).toFixed(2)}
+//           <span
+//             className={`text-lg font-bold ${
+//               isSaving
+//                 ? "text-green-600"
+//                 : isLoss
+//                 ? "text-red-600"
+//                 : "text-muted-foreground"
+//             }`}
+//           >
+//             ${(displaySaving * 24).toFixed(2)}
 //           </span>
 //         </div>
 //       </div>
@@ -196,7 +205,10 @@
 // }
 
 "use client";
+
 import { Separator } from "@/components/ui/separator";
+
+const GST_RATE = 1.1;
 
 interface QuotePreviewProps {
   quote: any;
@@ -205,7 +217,7 @@ interface QuotePreviewProps {
 export default function QuotePreview({ quote }: QuotePreviewProps) {
   const customer = quote.customer || {};
   const lineItems = quote.selected_lines || [];
-  const currentSpend = quote.current_spend_ex || 0;
+  const currentSpendEx = quote.current_spend_ex || 0;
   const newMrc = quote.new_monthly_ex || 0;
   const monthlySaving = quote.monthly_saving_ex || 0;
 
@@ -320,21 +332,34 @@ export default function QuotePreview({ quote }: QuotePreviewProps) {
           <div className="grid grid-cols-5 gap-2 font-semibold text-xs text-muted-foreground pb-2 border-b border-border">
             <div className="col-span-2">Description</div>
             <div className="text-right">Qty</div>
-            <div className="text-right">Unit (ex-GST)</div>
-            <div className="text-right">Total</div>
+            <div className="text-right">Unit ex GST</div>
+            <div className="text-right">Total ex</div>
           </div>
-          {lineItems.map((item: any, idx: number) => (
-            <div key={idx} className="grid grid-cols-5 gap-2 text-sm">
-              <div className="col-span-2">{item.desc || "Service"}</div>
-              <div className="text-right">{item.qty || 1}</div>
-              <div className="text-right">
-                ${(item.unit_ex || 0).toFixed(2)}
+          {lineItems.map((item: any, idx: number) => {
+            const qty = item.qty || 1;
+            const unitEx = item.unit_ex || 0;
+            const totalEx = qty * unitEx;
+            const unitInc = unitEx * GST_RATE;
+            const totalInc = totalEx * GST_RATE;
+            return (
+              <div key={idx} className="grid grid-cols-5 gap-2 text-sm">
+                <div className="col-span-2">{item.desc || "Service"}</div>
+                <div className="text-right">{qty}</div>
+                <div className="text-right">
+                  ${unitEx.toFixed(2)}
+                  <span className="text-xs block text-muted-foreground">
+                    inc ${unitInc.toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-right font-semibold">
+                  ${totalEx.toFixed(2)}
+                  <span className="text-xs block text-muted-foreground">
+                    inc ${totalInc.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <div className="text-right font-semibold">
-                ${((item.qty || 1) * (item.unit_ex || 0)).toFixed(2)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -343,50 +368,66 @@ export default function QuotePreview({ quote }: QuotePreviewProps) {
       <div className="space-y-2 p-3 bg-accent/5 rounded border border-accent/20">
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground text-sm">
-            Current monthly spend:
+            Current monthly spend ex GST:
           </span>
-          <span className="font-semibold">${currentSpend.toFixed(2)}</span>
+          <span className="font-semibold">${currentSpendEx.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>inc GST:</span>
+          <span>${(currentSpendEx * GST_RATE).toFixed(2)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground text-sm">
-            New monthly recurring:
+            New monthly recurring ex GST:
           </span>
           <span className="font-semibold text-accent">
             ${newMrc.toFixed(2)}
           </span>
         </div>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>inc GST:</span>
+          <span>${(newMrc * GST_RATE).toFixed(2)}</span>
+        </div>
         <Separator className="bg-accent/20" />
         <div className="flex justify-between items-center pt-1">
           <span className="text-foreground font-semibold">
-            Monthly {isLoss ? "extra cost" : "saving"}:
+            Monthly {isLoss ? "extra cost" : "saving"} ex GST:
           </span>
           <span
             className={`text-lg font-bold ${
               isSaving
                 ? "text-green-600"
                 : isLoss
-                ? "text-red-600"
-                : "text-muted-foreground"
+                  ? "text-red-600"
+                  : "text-muted-foreground"
             }`}
           >
             ${displaySaving.toFixed(2)}
           </span>
         </div>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>inc GST:</span>
+          <span>${(displaySaving * GST_RATE).toFixed(2)}</span>
+        </div>
         <div className="flex justify-between items-center">
           <span className="text-foreground font-semibold">
-            24-month {isLoss ? "extra cost" : "saving"}:
+            24-month {isLoss ? "extra cost" : "saving"} ex GST:
           </span>
           <span
             className={`text-lg font-bold ${
               isSaving
                 ? "text-green-600"
                 : isLoss
-                ? "text-red-600"
-                : "text-muted-foreground"
+                  ? "text-red-600"
+                  : "text-muted-foreground"
             }`}
           >
             ${(displaySaving * 24).toFixed(2)}
           </span>
+        </div>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>inc GST:</span>
+          <span>${(displaySaving * 24 * GST_RATE).toFixed(2)}</span>
         </div>
       </div>
 

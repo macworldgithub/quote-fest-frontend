@@ -20,6 +20,7 @@
 //     "Business" | "Residential" | null
 //   >(null);
 //   const [isProcessing, setIsProcessing] = useState(false);
+//   const [isUploading, setIsUploading] = useState(false); // New state for upload feedback
 //   const fileInputRef = useRef<HTMLInputElement>(null);
 //   const videoRef = useRef<HTMLVideoElement>(null);
 //   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,7 +29,9 @@
 //   const handleFileSelect = async (file: File | null) => {
 //     if (!file || !customerType) return;
 
+//     setIsUploading(true); // Show uploading feedback immediately
 //     setIsProcessing(true);
+
 //     try {
 //       const response = await analyzeBill(file, customerType);
 //       onStartQuote(response.id);
@@ -41,6 +44,8 @@
 //         variant: "destructive",
 //       });
 //       setIsProcessing(false);
+//     } finally {
+//       setIsUploading(false); // Clear uploading state in all cases
 //     }
 //   };
 
@@ -174,8 +179,22 @@
 //             variant="outline"
 //             className="w-full h-20 flex items-center justify-center gap-3 text-lg font-semibold bg-transparent"
 //           >
-//             <Upload className="w-5 h-5" />
-//             Upload File
+//             {isUploading ? (
+//               <>
+//                 <Loader2 className="w-5 h-5 animate-spin" />
+//                 Uploading bill...
+//               </>
+//             ) : isProcessing ? (
+//               <>
+//                 <Loader2 className="w-5 h-5 animate-spin" />
+//                 Analyzing with AI...
+//               </>
+//             ) : (
+//               <>
+//                 <Upload className="w-5 h-5" />
+//                 Upload File
+//               </>
+//             )}
 //           </Button>
 //         </div>
 
@@ -196,8 +215,8 @@
 import type React from "react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, Upload, ArrowLeft, Loader2 } from "lucide-react";
-import { analyzeBill } from "@/lib/api";
+import { Camera, Upload, ArrowLeft, Loader2, Pencil } from "lucide-react";
+import { analyzeBill, createManualQuote } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface QuoteStartProps {
@@ -214,6 +233,7 @@ export default function QuoteStart({
   >(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // New state for upload feedback
+  const [mode, setMode] = useState<"upload" | "manual" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -284,6 +304,26 @@ export default function QuoteStart({
     }
   };
 
+  const handleManual = async () => {
+    if (!customerType) return;
+
+    setIsProcessing(true);
+
+    try {
+      const response = await createManualQuote(customerType);
+      onStartQuote(response.id);
+    } catch (error) {
+      console.error("[v0] Manual quote error:", error);
+      toast({
+        title: "Error creating manual quote",
+        description:
+          error instanceof Error ? error.message : "Failed to create quote",
+        variant: "destructive",
+      });
+      setIsProcessing(false);
+    }
+  };
+
   if (!customerType) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
@@ -325,13 +365,99 @@ export default function QuoteStart({
     );
   }
 
+  if (!mode) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="w-full max-w-md space-y-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCustomerType(null)}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+
+          <div className="space-y-2 text-center">
+            <h2 className="text-3xl font-bold text-foreground">Create Quote</h2>
+            <p className="text-muted-foreground">
+              Choose how to start the quote
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              onClick={() => setMode("upload")}
+              size="lg"
+              className="w-full h-20 flex items-center justify-center gap-3 text-lg font-semibold"
+            >
+              <Upload className="w-5 h-5" />
+              Upload Bill
+            </Button>
+            <Button
+              onClick={() => setMode("manual")}
+              size="lg"
+              variant="outline"
+              className="w-full h-20 flex items-center justify-center gap-3 text-lg font-semibold bg-transparent"
+            >
+              <Pencil className="w-5 h-5" />
+              Manual Entry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "manual") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="w-full max-w-md space-y-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMode(null)}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+
+          <div className="space-y-2 text-center">
+            <h2 className="text-3xl font-bold text-foreground">Manual Quote</h2>
+            <p className="text-muted-foreground">
+              Create quote without bill analysis
+            </p>
+          </div>
+
+          <Button
+            onClick={handleManual}
+            disabled={isProcessing}
+            size="lg"
+            className="w-full h-20 flex items-center justify-center gap-3 text-lg font-semibold"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Start Manual Quote"
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
       <div className="w-full max-w-md space-y-6">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setCustomerType(null)}
+          onClick={() => setMode(null)}
           className="gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
