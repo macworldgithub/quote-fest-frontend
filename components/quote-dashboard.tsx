@@ -134,7 +134,16 @@ export default function QuoteDashboard({
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 border-b border-border bg-card/50 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">QuoteFast Pro</h1>
+          <div className="flex items-center gap-3">
+            <img
+              src="/belar.jpg"
+              alt="Belar Logo"
+              className="w-14 h-14 object-contain rounded"
+            />
+            <h1 className="text-2xl font-bold text-foreground">
+              QuoteFast Pro
+            </h1>
+          </div>
           <Button onClick={onNewQuote} className="gap-2">
             <Plus className="w-4 h-4" />
             New Quote
