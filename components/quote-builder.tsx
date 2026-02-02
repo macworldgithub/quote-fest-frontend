@@ -1412,14 +1412,29 @@ export default function QuoteBuilder({ quoteId, onBack }: QuoteBuilderProps) {
                     <Input
                       type="number"
                       placeholder="Quantity"
-                      value={newLine.qty}
-                      onChange={(e) =>
-                        setNewLine({
-                          ...newLine,
-                          qty: Number(e.target.value) || 1,
-                        })
-                      }
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={newLine.qty === 0 ? "" : newLine.qty}
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        // Allow empty input so user can delete and retype
+                        if (value === "") {
+                          setNewLine({ ...newLine, qty: 0 });
+                          return;
+                        }
+
+                        const num = Number(value);
+
+                        // Only allow positive integers
+                        if (Number.isInteger(num) && num > 0) {
+                          setNewLine({ ...newLine, qty: num });
+                        }
+                      }}
+                      className="appearance-auto"
                     />
+
                     <div>
                       <p className="text-sm text-muted-foreground">
                         Unit ex GST: ${newLine.unit_ex.toFixed(2)}

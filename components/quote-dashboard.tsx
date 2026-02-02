@@ -10,6 +10,8 @@ import {
   Plus,
   Filter,
   Eye,
+  Pencil,
+  FileEdit,
   Edit2,
   Download,
   MoreVertical,
@@ -102,7 +104,7 @@ export default function QuoteDashboard({
 
   const totalSavings = filteredQuotes.reduce(
     (sum, q) => sum + (q.monthly_saving_ex || 0),
-    0
+    0,
   );
   const averageSaving =
     filteredQuotes.length > 0 ? totalSavings / filteredQuotes.length : 0;
@@ -261,12 +263,19 @@ export default function QuoteDashboard({
                             </DropdownMenuItem>
                           </DropdownMenuContent> */}
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
+                            {/* <DropdownMenuItem
                               className="gap-2"
                               onClick={() => onViewQuote?.(quote.id)}
                             >
                               <Eye className="w-4 h-4" />
-                              View
+                              View/Edit
+                            </DropdownMenuItem> */}
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() => onViewQuote?.(quote.id)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                              View / Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="gap-2"
@@ -281,7 +290,7 @@ export default function QuoteDashboard({
                               onClick={async () => {
                                 if (
                                   !confirm(
-                                    "Are you sure you want to delete this quote? This cannot be undone."
+                                    "Are you sure you want to delete this quote? This cannot be undone.",
                                   )
                                 ) {
                                   return;

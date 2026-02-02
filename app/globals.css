@@ -123,3 +123,12 @@
     @apply bg-background text-foreground;
   }
 }
+/* Always show number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+input[type="number"] {
+  -moz-appearance: number-input; /* Firefox */
+}
