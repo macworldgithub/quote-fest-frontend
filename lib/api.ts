@@ -204,7 +204,7 @@
 //   return await response.json();
 // };
 
-const API_BASE = "https://quotefast.omnisuiteai.com";
+const API_BASE = "https://www.quote-backend.omnisuiteai.com";
 
 interface AnalyzeBillResponse {
   id: string;
